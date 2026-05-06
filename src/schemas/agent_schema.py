@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from enum import Enum
 from typing import Any
 from datetime import datetime
+from typing import Literal
 
 
 #============= Agent Action Enum =============
@@ -17,7 +18,7 @@ class AgentAction(Enum):
 #==================Chat Schema =============
 class ChatRequest(BaseModel):
     session_id: str
-    query: str
+    user_query: str
     history: list[dict[str, Any]] = Field(default_factory=list)
 
 class ChatResponse(BaseModel):
@@ -26,10 +27,15 @@ class ChatResponse(BaseModel):
     action: AgentAction
     confidence: float
     references: list[Reference] = Field(default_factory=list)
-    traces: list[dict[str, Any]] = Field(default_factory=list)
+    traces: list[dict[str, Any]] = Field(default_factory=list) # for agent tracing purpose
 
 
 #=============Reference Schema =============
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant", "system"]
+    content: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+
 
 class Reference(BaseModel):
     paper_id: str
