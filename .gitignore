@@ -1,14 +1,67 @@
-/venv/
-/env/
-/env.local
-/env.development.local
-/env.test.local
-/env.production.local
-/env.development
-/env.test
-/env.production
-/env
-/env.local
-/env.development.local
-/env.test.local
-/env.production.local
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.env/
+.venv/
+
+# Environment Variables
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+logs/
+*.log
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# ChromaDB / Vector DB
+chroma_db/
+
+# Data Files
+data/papers/
+
+# Streamlit
+.streamlit/
+
+# Cache
+.cache/
+
+# SQLite
+*.db
+*.sqlite3
+
+# Mypy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Docker
+*.pid
+
+# Temporary Files
+tmp/
+temp/
