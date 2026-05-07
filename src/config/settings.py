@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from functools import lru_cache
+from pathlib import Path
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -20,6 +21,13 @@ class Settings(BaseSettings):
     #============= Vector Database Settings =============
     pinecone_api_key: str = Field(default="", env="PINECONE_API_KEY")
     pinecone_index: str = Field(default="skyclad-research-index", env="PINECONE_INDEX")
+    pinecone_namespace: str = "default"
+
+    #============= Storage Settings =============
+    raw_pdf_dir: str = str(Path("storage") / "pdfs")
+
+    #============= Retrieval Settings =============
+    min_retrieval_score: float = Field(default=0.2, ge=0.0, le=1.0)
 
 @lru_cache
 def get_settings() -> Settings:
