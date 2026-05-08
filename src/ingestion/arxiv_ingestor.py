@@ -2,18 +2,19 @@ from __future__ import annotations
 
 from typing import Any
 from pathlib import Path
-
+from rich import print
 import requests
 import feedparser
 from dataclasses import dataclass
 from src.config.settings import Settings
 from src.ingestion.pdf_parser import PdfParser
 from src.ingestion.chunker import TextChunker
-from rich import print
-from src.schemas.agent_schema import IngestRequest
+from src.schemas.agent_schema import IngestRequest, IngestResponse, DocumentMetadata
 from tenacity import retry, stop_after_attempt, wait_exponential
-
+from src.retrieval.vector_store import VectorStore, EmbeddedChunk
 from datetime import datetime, timedelta, UTC
+from src.ingestion.pdf_parser import PdfParserError
+from src.ingestion.pdf_parser import Documentloader
 
 #==================Arxiv Paper==================
 #contains the metadata and content of an Arxiv paper
@@ -31,18 +32,21 @@ class ArxivPaper:
 
 class PdfDownloadError(Exception):
     pass
+class ArxivFetchError(Exception):
+    pass
 
 #==================Arxiv Ingestor==================
 #ingests Arxiv papers into the vector database
 class ArxivIngestor:
 
-    def __init__(self,settings: Settings):
+    def __init__(self,settings: Settings,vector_store: VectorStore):
         self.settings = settings
-        self.pdf_parser = PdfParser()
+        self.pdf_parser = PdfParser(Documentloader())
         self.text_chunker = TextChunker()
+        self.vector_store = vector_store
 
     async def fetch_arxiv_papers(self,request: IngestRequest)->list[ArxivPaper]:
-        last_date  = datetime.now() - timedelta(days=request.days_back)  #last date to fetch papers from Arxiv(last n days)
+        last_date: datetime = datetime.now(UTC) - timedelta(days=request.days_back)  #last date to fetch papers from Arxiv(last n days)
         category_filter = f"cat:{request.category}"  #category filter for the papers like cs.AI
 
         params:dict[str,Any] = {
@@ -53,9 +57,11 @@ class ArxivIngestor:
             "sortOrder": "descending",
         }
 
-        response = requests.get(ARXIV_API_URL, params=params,timeout=30.0)
-        print(response)
-        response.raise_for_status()
+        try:
+            response = requests.get(ARXIV_API_URL, params=params,timeout=30.0)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as err:
+            raise ArxivFetchError(f"Failed to fetch arXiv feed: {err}") from err
 
         feed = feedparser.parse(response.text)
 
@@ -78,10 +84,12 @@ class ArxivIngestor:
                     source_url=entry.id,
                 )
             )
+        # print(papers)
         return papers
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     async def download_pdf(self,paper: ArxivPaper):
+        print(paper.pdf_url)
         pdf_dir: Path = Path(self.settings.raw_pdf_dir)
         pdf_dir.mkdir(parents=True, exist_ok=True)
 
@@ -100,22 +108,77 @@ class ArxivIngestor:
         except Exception as e:
             raise PdfDownloadError(f"Error downloading PDF: {e}")
 
-
+    async def ingest_paper(self, request: IngestRequest) -> IngestResponse:
+        try:
+            papers: list[ArxivPaper] = await self.fetch_arxiv_papers(request)
+        except ArxivFetchError as err:
+            return IngestResponse(
+                requested=request.max_papers,
+                indexed=0,
+                skipped_duplicates=0,
+                failed=1,
+                failures=[str(err)],
+            )
+        indexed: int = 0
+        skipped_duplicates: int = 0
+        failed: int = 0
+        failures: list[str] = []
+        for start_index in range(0, len(papers), request.batch_size):
+            batch: list[ArxivPaper] = papers[start_index : start_index + request.batch_size]
+            print(f"batch: {batch}")
+            for paper in batch:
+                try:
+                    if self.vector_store.has_paper(paper.paper_id):
+                        skipped_duplicates += 1
+                        continue
+                    chunks: list[EmbeddedChunk] = await self.prepare_chunks_for_paper(paper)
+                    print("downloaded and prepared chunks for paper")
+                    self.vector_store.upsert(chunks)
+                    indexed += 1
+                except Exception as err:
+                    failed += 1
+                    failures.append(f"{paper.paper_id}: {err}")
+        return IngestResponse(
+            requested=request.max_papers,
+            indexed=indexed,
+            skipped_duplicates=skipped_duplicates,
+            failed=failed,
+            failures=failures,
+        )
     
+    async def prepare_chunks_for_paper(self, paper: ArxivPaper) -> list[EmbeddedChunk]:
+        pdf_path: Path = await self.download_pdf(paper)
+        try:
+            full_text: str = self.pdf_parser.parse_pdf(pdf_path)
+            print(f"parsed pdf ")
+        except PdfParserError:
+            full_text = paper.abstract
+
+        chunks: list[str] = self.text_chunker.chunk_text(full_text)
+        embedded_chunks: list[EmbeddedChunk] = []
+        for chunk_index, chunk in enumerate(chunks):
+            print(paper)
+            metadata: DocumentMetadata = DocumentMetadata(
+                paper_id=paper.paper_id,
+                title=paper.title,
+                authors=paper.authors,
+                abstract=paper.summary,
+                section="unknown",
+                source_url=paper.source_url,
+                published_at=paper.published_at,
+                chunk_index=chunk_index,
+            )
         
-
-
-
-
-
-
-
-
-
-
-    def ingest_papers(self,request: IngestRequest):
-        pass
-
+            print(f"chunk index: {chunk_index}")
+            embedded_chunks.append(
+                EmbeddedChunk(
+                    id=f"{paper.paper_id}-{chunk_index}",
+                    text=chunk,
+                    metadata=metadata.model_dump(mode="json"),
+                )
+            )
+        print(f"embedded chunks: created")
+        return embedded_chunks
 
 
 

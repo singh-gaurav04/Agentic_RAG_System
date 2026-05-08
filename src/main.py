@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI
 from src.routes.chat_router import router as chat_router
 from src.routes.health_router import router as health_router
 from src.routes.ingestion_router import router as ingestion_router

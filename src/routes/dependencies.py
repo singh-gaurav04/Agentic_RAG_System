@@ -8,7 +8,9 @@ from src.retrieval.vector_store import VectorStore
 from src.tools.web_search_tool import WebSearchTool
 from src.graph.nodes import GraphNodes
 from src.graph.workflow import build_graph
-
+from src.ingestion.arxiv_ingestor import ArxivIngestor
+from src.memory.memory_store import MemoryStore
+from src.retrieval.hybrid_retriever import HybridRetriever
 
 
 @lru_cache
@@ -19,14 +21,14 @@ def get_vector_store() -> VectorStore:
 
 @lru_cache
 def get_memory_store() -> MemoryStore:
-    settings: AppSettings = get_settings()
+    settings: Settings = get_settings()
     return MemoryStore(settings)
 
 
 @lru_cache
 def get_retriever() -> HybridRetriever:
-    settings: AppSettings = get_settings()
-    retriever: HybridRetriever = HybridRetriever(settings, get_vector_repository())
+    settings: Settings = get_settings()
+    retriever: HybridRetriever = HybridRetriever(settings, get_vector_store())
     # Build sparse index once on startup; rebuilt after ingestion updates.
     retriever.rebuild_sparse_index()
     return retriever
@@ -34,8 +36,8 @@ def get_retriever() -> HybridRetriever:
 
 @lru_cache
 def get_ingestor() -> ArxivIngestor:
-    settings: AppSettings = get_settings()
-    return ArxivIngestor(settings, get_vector_repository())
+    settings: Settings = get_settings()
+    return ArxivIngestor(settings, get_vector_store())
 
 
 @lru_cache

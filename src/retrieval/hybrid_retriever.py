@@ -12,9 +12,9 @@ from src.retrieval.vector_store import VectorStore
 
 class HybridRetriever:
     def __init__(self, settings: Settings, vector_repository: VectorStore) -> None:
-        self._settings: Settings = settings
-        self._vector_store: VectorStore = vector_store
-        self._reranker: PineconeRerank = PineconeRerank(settings)
+        self.settings: Settings = settings
+        self.vector_store: VectorStore = vector_repository
+        self.reranker: PineconeRerank = PineconeRerank(settings)
 
     def rebuild_sparse_index(self) -> None:
         # Pinecone hybrid search builds sparse signal at query-time; no local index needed.

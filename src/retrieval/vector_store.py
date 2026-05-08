@@ -19,26 +19,25 @@ class EmbeddedChunk:
 
 class VectorStore:
     def __init__(self, settings: Settings) -> None:
-        
-        self.settings = settings
-        self.embeddings = MistralAIEmbeddings(
+        self.settings: Settings = settings
+        self._namespace: str = settings.pinecone_namespace
+        self._embedder: MistralAIEmbeddings = MistralAIEmbeddings(
             api_key=settings.mistral_api_key,
             model=settings.mistral_embedding_model,
         )
-        self.pinecone = Pinecone(
+        self.pinecone: Pinecone = Pinecone(
             api_key=settings.pinecone_api_key,
         )
-        self.index_name = settings.pinecone_index
-        
-        self.index = self.pinecone.Index(self.index_name)
-
-        vector_store = PineconeVectorStore(
-            embedding=self.embeddings,
-            index=self.index,
+        self.index_name: str = settings.pinecone_index
+        self._index = self.pinecone.Index(self.index_name)
+        self.vector_store: PineconeVectorStore = PineconeVectorStore(
+            embedding=self._embedder,
+            index=self._index,
             text_key="text",
+            namespace=self._namespace,
         )
-
-        self.sparse_hash_space = 1_000_003
+        self._bm25_encoder: BM25Encoder = BM25Encoder()
+        self._is_bm25_fitted: bool = False
 
     def add(self,chunks: list[EmbeddedChunk]) -> None:
         if not chunks:
@@ -59,12 +58,14 @@ class VectorStore:
             metadatas=metadatas,
             ids=ids
         )
+    def upsert(self, chunks: list[EmbeddedChunk]) -> None:
+        self.add(chunks)
 
 
     def count(self) -> int:
-            index_stats = self.index.describe_index_stats()
-            namespace_stats = index_stats.namespace.get("namespaces",{}).get(self.settings.pinecone_namespace,{})
-            return namespace_stats.get("vector_count",0)
+            index_stats: dict[str, Any] = self._index.describe_index_stats()
+            namespace_stats: dict[str, Any] = index_stats.get("namespaces", {}).get(self._namespace, {})
+            return int(namespace_stats.get("vector_count", 0))
 
         
     def has_paper(self,paper_id:str) -> bool:
@@ -76,7 +77,7 @@ class VectorStore:
             response = self.vector_store.similarity_search_with_score(
                 query=paper_id,
                 k=1,
-                filter={"paper_id": paper_id}
+                filter={"paper_id": paper_id},
             )
 
             return len(response) > 0

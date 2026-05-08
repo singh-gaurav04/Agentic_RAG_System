@@ -25,6 +25,7 @@ class TextChunker:
 
 
     def chunk_text(self,text: str) -> list[str]:
+        print(f"chunking text")
         normalized_text = " ".join(text.strip())
         
         #==================Handle Empty Text==================

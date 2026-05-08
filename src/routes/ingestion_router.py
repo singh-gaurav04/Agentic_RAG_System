@@ -1,13 +1,14 @@
 from fastapi import APIRouter,status,HTTPException
 
-from src.schemas.agent_schema import IngestRequest
+from src.schemas.agent_schema import IngestRequest, IngestResponse
+from src.routes.dependencies import get_ingestor
 
 router: APIRouter = APIRouter(
     tags=["For Admin-Ingestion"],
 )
 #==================Ingest Papers==================
 @router.post("/ingest-papers")
-def ingest_papers(request: IngestRequest):
+async def ingest_papers(request: IngestRequest):
     if request.max_papers > 200:
         raise HTTPException(status_code=400, detail="Maximum number of papers to ingest is 200")
     if request.max_papers < 1:
@@ -23,4 +24,6 @@ def ingest_papers(request: IngestRequest):
     if request.batch_size < 1:
         raise HTTPException(status_code=400, detail="Minimum number of papers to ingest in each batch is 1")
 
-    return {"message": "Papers ingested successfully"}
+    ingestor = get_ingestor()
+    response : IngestResponse = await ingestor.ingest_paper(request)
+    return response
