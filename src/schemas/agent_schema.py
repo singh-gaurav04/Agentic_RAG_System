@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 from typing import Any
 from datetime import datetime
@@ -8,10 +8,10 @@ from typing import Literal
 
 #============= Agent Action Enum =============
 class AgentAction(Enum):
+    answer = "answer"
     retrieve_documents = "retrieve_documents"
     ask_clarification = "ask_clarification"
     web_search = "web_search"
-    answer = "answer"
     refuse = "refuse"
     rewrite_query = "rewrite_query"
     rerank_results = "rerank_results"
@@ -20,15 +20,6 @@ class AgentAction(Enum):
 class ChatRequest(BaseModel):
     session_id: str
     user_query: str
-    history: list[dict[str, Any]] = Field(default_factory=list)
-
-class ChatResponse(BaseModel):
-    session_id: str
-    answer: str
-    action: AgentAction
-    confidence: float
-    references: list[Reference] = Field(default_factory=list)
-    traces: list[dict[str, Any]] = Field(default_factory=list) # for agent tracing purpose
 
 
 #=============Reference Schema =============
@@ -39,13 +30,30 @@ class ChatMessage(BaseModel):
 
 
 class Reference(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     paper_id: str
     title: str
     source_url: str
     section: str
 
+
+class ChatResponse(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
+    session_id: str
+    session_title: str | None = None
+    answer: str
+    action: AgentAction
+    confidence: float
+    references: list[Reference] = Field(default_factory=list)
+    traces: list[dict[str, Any]] = Field(default_factory=list)
+
+
 #=============planner Decisions schema =============
 class PlannerDecision(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+    session_title: str | None = None
     action: AgentAction
     confidence: float = Field(ge=0.0, le=1.0)
     rationale: str
@@ -70,6 +78,8 @@ class IngestResponse(BaseModel):
 
 #=============Document Schema =============
 class DocumentMetadata(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     paper_id: str
     title: str
     authors: list[str]
@@ -81,6 +91,8 @@ class DocumentMetadata(BaseModel):
 
 
 class RetrievedDocument(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     id: str
     content: str
     metadata: DocumentMetadata

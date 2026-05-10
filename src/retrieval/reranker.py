@@ -11,9 +11,11 @@ PINECONE_RERANK_MODEL: str = "bge-reranker-v2-m3"
 
 class PineconeRerank:
     def __init__(self, settings: Settings) -> None:
+        print("from pinecone reranker")
         self.client: Pinecone = Pinecone(api_key=settings.pinecone_api_key)
 
     def rerank(self, query: str, candidates: list[dict[str, Any]], top_k: int) -> list[dict[str, Any]]:
+        print("from rerank function")
         if not candidates:
             return []
         candidate_texts: list[str] = [str(candidate.get("content", "")) for candidate in candidates]

@@ -11,6 +11,7 @@ from src.graph.workflow import build_graph
 from src.ingestion.arxiv_ingestor import ArxivIngestor
 from src.memory.memory_store import MemoryStore
 from src.retrieval.hybrid_retriever import HybridRetriever
+from langgraph.checkpoint.memory import InMemorySaver
 
 
 @lru_cache
@@ -42,6 +43,7 @@ def get_ingestor() -> ArxivIngestor:
 
 @lru_cache
 def get_graph():
+    checkpointer = InMemorySaver()
     settings: Settings = get_settings()
     nodes: GraphNodes = GraphNodes(
         settings=settings,
@@ -49,4 +51,4 @@ def get_graph():
         # memory_store=get_memory_store(),
         web_search_tool=WebSearchTool(),
     )
-    return build_graph(nodes)
+    return build_graph(nodes, checkpointer=checkpointer)

@@ -1,26 +1,29 @@
 from fastapi import APIRouter, HTTPException
-from src.schemas.agent_schema import ChatRequest, ChatResponse, AgentAction
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.memory import InMemorySaver
 from src.graph.state import AgentState
 from src.routes.dependencies import get_graph
+from langchain_core.messages import HumanMessage
+from src.schemas.agent_schema import AgentAction, ChatRequest, ChatResponse, PlannerDecision, Reference
 
+from rich import print
 
 router: APIRouter = APIRouter(
     tags=["Chat"],
 )
 
+
 @router.post("/chat")
 async def chat(request: ChatRequest):
 
-    #==================Initialize Graph==================
-
     graph = get_graph()
     
-    #==================Initialize Agent State==================
+
     initial_state: AgentState = {
         "session_id": request.session_id,
+        "session_title": "New chat",
         "user_query": request.user_query,
-        "conversation_history": request.history,
-        "memory_summary": "",
+        "messages": [HumanMessage(content=request.user_query)],
         "planner_decision": None,
         "rewritten_query": None,
         "retrieved_docs": [],
@@ -33,17 +36,25 @@ async def chat(request: ChatRequest):
     }
 
     try:
-        result_state = await graph.ainvoke(initial_state)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        config: RunnableConfig = {"configurable": {"thread_id": request.session_id}}
+        result_state = await graph.ainvoke(initial_state, config)
 
+   
+    except Exception as exception:
+        raise HTTPException(status_code=500, detail=str(exception)) from exception
 
-    planner_decision = result_state["planner_decision"]
+    response_action = result_state["planner_decision"]["action"]
+    response_confidence = result_state["planner_decision"]["confidence"]
+
+    validated_references = [Reference.model_validate(item) for item in result_state["references"]]
+    session_title = result_state["session_title"]
+
     return ChatResponse(
         session_id=request.session_id,
+        session_title=session_title,
         answer=result_state["final_answer"],
-        action=planner_decision.action if planner_decision else AgentAction.answer,
-        confidence=planner_decision.confidence if planner_decision else 0.0,
-        references=result_state["references"],
+        action=response_action,
+        confidence=response_confidence,
+        references=validated_references,
         traces=result_state["traces"],
     )

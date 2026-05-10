@@ -20,8 +20,9 @@ class Settings(BaseSettings):
 
     #============= Vector Database Settings =============
     pinecone_api_key: str = Field(default="", env="PINECONE_API_KEY")
-    pinecone_index: str = Field(default="skyclad-research-index", env="PINECONE_INDEX")
+    pinecone_index: str = Field(default="skyclad", env="PINECONE_INDEX")
     pinecone_namespace: str = "default"
+    top_k_final: int = Field(default=10, env="TOP_K_FINAL")
 
     #============= Storage Settings =============
     raw_pdf_dir: str = str(Path("storage") / "pdfs")

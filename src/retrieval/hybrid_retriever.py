@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from langchain_community.retrievers import PineconeHybridSearchRetriever
-
 from src.config.settings import Settings
 from src.schemas.agent_schema import DocumentMetadata, RetrievedDocument
 from src.retrieval.reranker import PineconeRerank
@@ -20,40 +18,40 @@ class HybridRetriever:
         # Pinecone hybrid search builds sparse signal at query-time; no local index needed.
         return
 
-    def retrieve(self, query: str) -> list[RetrievedDocument]:
-        raw_documents = self._hybrid_retriever.invoke(query)
-        hybrid_candidates: list[dict[str, Any]] = []
-        for document in raw_documents:
-            metadata: dict[str, Any] = dict(document.metadata)
-            hybrid_candidates.append(
-                {
-                    "id": str(metadata.get("chunk_id", "")),
-                    "content": document.page_content,
-                    "metadata": metadata,
-                    "score": 0.0,
-                }
-            )
-        reranked_candidates = self._reranker.rerank(
+    async def retrieve(self, query: str) -> list[RetrievedDocument]:
+        hybrid_candidates: list[dict[str, Any]] = self.vector_store.query_hybrid(
+            query=query,
+            top_k=self.settings.top_k_final,
+        )
+        if not hybrid_candidates:
+            return []
+        reranked_candidates = self.reranker.rerank(
             query=query,
             candidates=hybrid_candidates,
-            top_k=self._settings.top_k_final,
+            top_k=self.settings.top_k_final,
         )
+        candidate_by_id: dict[str, dict[str, Any]] = {
+            str(candidate.get("id", "")): candidate for candidate in hybrid_candidates
+        }
+        if not reranked_candidates:
+            reranked_candidates = hybrid_candidates
         retrieved_documents: list[RetrievedDocument] = []
         for candidate in reranked_candidates:
+            candidate_id: str = str(candidate.get("id", ""))
+            source_candidate: dict[str, Any] = candidate_by_id.get(candidate_id, candidate)
+            dense_score: float = float(source_candidate.get("score", 0.0))
             rerank_score: float = float(candidate.get("score", 0.0))
-            metadata: DocumentMetadata = DocumentMetadata.model_validate(candidate.get("metadata", {}))
+            metadata_payload: dict[str, Any] = source_candidate.get("metadata", {})
+            metadata: DocumentMetadata = DocumentMetadata.model_validate(metadata_payload)
+            final_score: float = max(dense_score, rerank_score)
             retrieved_documents.append(
                 RetrievedDocument(
-                    id=str(candidate.get("id", "")),
-                    content=str(candidate.get("content", "")),
+                    id=candidate_id,
+                    content=str(source_candidate.get("content", "")),
                     metadata=metadata,
-                    dense_score=rerank_score,
+                    dense_score=dense_score,
                     rerank_score=rerank_score,
-                    final_score=rerank_score,
+                    final_score=final_score,
                 )
             )
-        return [
-            document
-            for document in retrieved_documents
-            if document.final_score >= self._settings.min_retrieval_score
-        ]
+        return retrieved_documents

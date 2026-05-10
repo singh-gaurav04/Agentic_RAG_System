@@ -111,7 +111,12 @@ class VectorStore:
 
     def query_hybrid(self, query: str, top_k: int, alpha: float = 0.5) -> list[dict[str, Any]]:
         if not self._is_bm25_fitted:
-            self._fit_bm25_encoder_from_index()
+            try:
+                self._fit_bm25_encoder_from_index()
+            except Exception:
+                return self._query_dense_candidates(query=query, top_k=top_k)
+        if not self._is_bm25_fitted:
+            return self._query_dense_candidates(query=query, top_k=top_k)
         dense_vector: list[float] = self._embedder.embed_query(query)
         sparse_values: dict[str, list[float] | list[int]] = self._bm25_encoder.encode_queries(query)
         normalized_alpha: float = min(max(alpha, 0.0), 1.0)
@@ -140,6 +145,24 @@ class VectorStore:
                 }
             )
         return items
+    def _query_dense_candidates(self, query: str, top_k: int) -> list[dict[str, Any]]:
+        result: dict[str, Any] = self.fetch_related_papers(query=query, top_k=top_k)
+        ids: list[str] = result.get("ids", [[]])[0]
+        documents: list[str] = result.get("documents", [[]])[0]
+        metadatas: list[dict[str, Any]] = result.get("metadatas", [[]])[0]
+        distances: list[float] = result.get("distances", [[]])[0]
+        candidates: list[dict[str, Any]] = []
+        for index, document_id in enumerate(ids):
+            score: float = 1.0 - float(distances[index]) if index < len(distances) else 0.0
+            candidates.append(
+                {
+                    "id": str(document_id),
+                    "content": str(documents[index]) if index < len(documents) else "",
+                    "metadata": metadatas[index] if index < len(metadatas) else {},
+                    "score": score,
+                }
+            )
+        return candidates
 
     def _fit_bm25_encoder_from_index(self) -> None:
         records: dict[str, Any] = self.fetch_all()

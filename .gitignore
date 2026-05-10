@@ -36,6 +36,8 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+node_modules/
+frontend/node_modules/
 
 # ChromaDB / Vector DB
 chroma_db/
