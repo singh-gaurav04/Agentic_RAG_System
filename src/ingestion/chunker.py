@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+logger = logging.getLogger(__name__)
 
 #==================Chunking Configuration==================
 @dataclass
@@ -25,7 +28,7 @@ class TextChunker:
 
 
     def chunk_text(self,text: str) -> list[str]:
-        print(f"chunking text")
+        logger.debug("chunk_text: input length=%s", len(text))
         normalized_text = " ".join(text.strip())
         
         #==================Handle Empty Text==================

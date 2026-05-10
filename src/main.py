@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.routes.chat_router import router as chat_router
 from src.routes.health_router import router as health_router
 from src.routes.ingestion_router import router as ingestion_router
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Skyclad Ventures Agentic Research System",

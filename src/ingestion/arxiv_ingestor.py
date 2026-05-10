@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from pathlib import Path
-from rich import print
+import logging
 import requests
 import feedparser
 from dataclasses import dataclass
@@ -15,6 +15,8 @@ from src.retrieval.vector_store import VectorStore, EmbeddedChunk
 from datetime import datetime, timedelta, UTC
 from src.ingestion.pdf_parser import PdfParserError
 from src.ingestion.pdf_parser import Documentloader
+
+logger = logging.getLogger(__name__)
 
 #==================Arxiv Paper==================
 #contains the metadata and content of an Arxiv paper
@@ -84,12 +86,11 @@ class ArxivIngestor:
                     source_url=entry.id,
                 )
             )
-        # print(papers)
         return papers
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     async def download_pdf(self,paper: ArxivPaper):
-        print(paper.pdf_url)
+        logger.debug("download_pdf: %s", paper.pdf_url)
         pdf_dir: Path = Path(self.settings.raw_pdf_dir)
         pdf_dir.mkdir(parents=True, exist_ok=True)
 
@@ -125,14 +126,17 @@ class ArxivIngestor:
         failures: list[str] = []
         for start_index in range(0, len(papers), request.batch_size):
             batch: list[ArxivPaper] = papers[start_index : start_index + request.batch_size]
-            print(f"batch: {batch}")
+            logger.debug(
+                "ingest batch papers=%s",
+                [p.paper_id for p in batch],
+            )
             for paper in batch:
                 try:
                     if self.vector_store.has_paper(paper.paper_id):
                         skipped_duplicates += 1
                         continue
                     chunks: list[EmbeddedChunk] = await self.prepare_chunks_for_paper(paper)
-                    print("downloaded and prepared chunks for paper")
+                    logger.info("Indexed paper %s (%s chunks)", paper.paper_id, len(chunks))
                     self.vector_store.upsert(chunks)
                     indexed += 1
                 except Exception as err:
@@ -150,14 +154,13 @@ class ArxivIngestor:
         pdf_path: Path = await self.download_pdf(paper)
         try:
             full_text: str = self.pdf_parser.parse_pdf(pdf_path)
-            print(f"parsed pdf ")
+            logger.debug("prepare_chunks_for_paper: parsed PDF %s", paper.paper_id)
         except PdfParserError:
             full_text = paper.abstract
 
         chunks: list[str] = self.text_chunker.chunk_text(full_text)
         embedded_chunks: list[EmbeddedChunk] = []
         for chunk_index, chunk in enumerate(chunks):
-            print(paper)
             metadata: DocumentMetadata = DocumentMetadata(
                 paper_id=paper.paper_id,
                 title=paper.title,
@@ -168,8 +171,6 @@ class ArxivIngestor:
                 published_at=paper.published_at,
                 chunk_index=chunk_index,
             )
-        
-            print(f"chunk index: {chunk_index}")
             embedded_chunks.append(
                 EmbeddedChunk(
                     id=f"{paper.paper_id}-{chunk_index}",
@@ -177,7 +178,11 @@ class ArxivIngestor:
                     metadata=metadata.model_dump(mode="json"),
                 )
             )
-        print(f"embedded chunks: created")
+        logger.debug(
+            "prepare_chunks_for_paper: built %s embedded chunks for %s",
+            len(embedded_chunks),
+            paper.paper_id,
+        )
         return embedded_chunks
 
 

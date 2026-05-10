@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import logging
 from pathlib import Path
 from typing import Any
 from urllib import request
@@ -7,6 +8,8 @@ from urllib import request
 BASE_URL: str = "http://127.0.0.1:8000/chat"
 QUESTIONS_PATH: Path = Path("eval") / "questions.json"
 SESSION_PREFIX: str = "eval-session"
+
+logger = logging.getLogger(__name__)
 
 
 def execute_post(payload: dict[str, Any]) -> dict[str, Any]:
@@ -52,8 +55,9 @@ def execute_eval() -> None:
         "action_match_rate": round(matches / total, 3) if total else 0.0,
         "results": results,
     }
-    print(json.dumps(summary, indent=2))
+    logger.info("eval summary:\n%s", json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     execute_eval()

@@ -1,6 +1,5 @@
 import json
-
-from rich import print
+import logging
 
 from langchain_mistralai import ChatMistralAI
 
@@ -11,6 +10,9 @@ from src.schemas.agent_schema import AgentAction, PlannerDecision, Reference, Re
 from src.tools.web_search_tool import WebSearchTool
 from langchain_core.messages import AIMessage
 from langgraph.graph.message import add_messages
+
+logger = logging.getLogger(__name__)
+
 
 class ModelNotAvailableError(Exception):
     pass
@@ -49,7 +51,7 @@ class GraphNodes:
             raise ModelNotAvailableError(f"Failed to initialize Mistral AI model: {e}") from e
 
     async def planner_node(self, state: AgentState) -> AgentState:
-        print("from planner node")
+        logger.debug("planner_node: start session_id=%s", state.get("session_id"))
         system_prompt: str = ('''
           You are an AI agent responsible for managing user queries related to artificial intelligence and computer science research. Your task is to select the most appropriate action based on the user's message and message history, following these rules:
 
@@ -86,11 +88,11 @@ f"Message history: {state['messages']}\n"
             }
         )
         state["session_title"] = planner_output.session_title
-        print("exiting planner node")
+        logger.debug("planner_node: done action=%s", planner_output.action)
         return state
 
     async def retrieval_node(self, state: AgentState) -> AgentState:
-        print("from retrieval node")
+        logger.debug("retrieval_node: start")
         query = state["rewritten_query"] or state["user_query"]
         retrieved_docs = await self.retriever.retrieve(query)
         retrieval_confidence: float = max((document.final_score for document in retrieved_docs), default=0.0)
@@ -107,19 +109,19 @@ f"Message history: {state['messages']}\n"
                 "corpus_miss_fallback_web_search": len(retrieved_docs) == 0,
             }
         )
-        print("exiting retrieval node")
+        logger.debug("retrieval_node: done count=%s", len(retrieved_docs))
         return state
 
     async def reranker_node(self, state: AgentState) -> AgentState:
-        print("from reranker node")
+        logger.debug("reranker_node: start")
         documents = sorted(_parse_retrieved_documents(state), key=lambda item: item.final_score, reverse=True)
         state["retrieved_docs"] = [d.model_dump(mode="json") for d in documents]
         state["traces"].append({"node": "reranker", "documents": [doc.id for doc in documents]})
-        print("exiting reranker node")
+        logger.debug("reranker_node: done")
         return state
 
     async def tool_node(self, state: AgentState) -> AgentState:
-        print("from tool node")
+        logger.debug("tool_node: start")
         query: str = state["rewritten_query"] or state["user_query"]
         results = await self.web_search_tool.search(query, max_results=5)
         state["tool_outputs"] = [{"tool": "web_search", "results": results}]
@@ -133,11 +135,11 @@ f"Message history: {state['messages']}\n"
                 "reason": "planner_choice" if action == AgentAction.web_search.value else "corpus_miss",
             }
         )
-        print("exiting tool node")
+        logger.debug("tool_node: done results_count=%s", len(results))
         return state
 
     async def refusal_or_clarification_node(self, state: AgentState) -> AgentState:
-        print("from refusal or clarification node")
+        logger.debug("refusal_or_clarification_node: start")
         decision = _parse_planner_decision(state)
         if decision is None:
             state["final_answer"] = "i cannot answer or continue because no action was chosen by the planner."
@@ -212,11 +214,11 @@ f"Message history: {state['messages']}\n"
             }
         )
         state["messages"] = add_messages(state["messages"], AIMessage(content=answer_text))
-        print("exiting answer node")
+        logger.debug("answer_node: done")
         return state
 
     async def evaluation_hook_node(self, state: AgentState) -> AgentState:
-        print("from evaluation hook node")
+        logger.debug("evaluation_hook_node: start")
         state["traces"].append(
             {
                 "node": "evaluation_hook",
@@ -224,5 +226,5 @@ f"Message history: {state['messages']}\n"
                 "retrieval_confidence": state["confidence_signals"].get("retrieval_confidence", 0.0),
             }
         )
-        print("exiting evaluation hook node")
+        logger.debug("evaluation_hook_node: done")
         return state

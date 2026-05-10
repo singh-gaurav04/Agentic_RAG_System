@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+
 from langchain_community.document_loaders import PyPDFLoader
-from rich import print
+
+logger = logging.getLogger(__name__)
+
 
 class PdfParserError(Exception):
     pass
@@ -16,13 +20,12 @@ class Documentloader:
         try:
             loader = PyPDFLoader(str(pdf_path))
             documents = loader.load()
-            # print(f"documents loaded")
             page_texts: list[str] = [document.page_content for document in documents]
             if not page_texts:
                 raise PdfParserError("No pages found in the document")
             return page_texts
         except Exception as e:
-            print(f"error loading document pages: {e}")
+            logger.warning("load_document_pages failed for %s: %s", pdf_path, e)
             raise PdfParserError(f"Error loading document pages: {e}")
     
 
@@ -35,9 +38,8 @@ class PdfParser:
 
     def parse_pdf(self,pdf_path: Path) -> str:
         try:
-            print(f"loading document pages from {pdf_path}")
+            logger.debug("parse_pdf: loading %s", pdf_path)
             pages_text:list[str] = self.document_loader.load_document_pages(pdf_path)
-            # print(f"pages_text: {pages_text}")
             text = " ".join(pages_text)
 
             if not text:

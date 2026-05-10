@@ -6,8 +6,6 @@ from src.routes.dependencies import get_graph
 from langchain_core.messages import HumanMessage
 from src.schemas.agent_schema import AgentAction, ChatRequest, ChatResponse, PlannerDecision, Reference
 
-from rich import print
-
 router: APIRouter = APIRouter(
     tags=["Chat"],
 )
