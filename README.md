@@ -176,7 +176,7 @@ You can have this project running locally
 
 ## 1️⃣ Clone the Repository
 
-```
+```bash
 git clone https://github.com/singh-gaurav04/Agentic_RAG_System.git
 
 cd Agentic_RAG_System
