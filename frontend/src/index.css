@@ -53,3 +53,101 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Ingestion panel loading animations */
+@keyframes ingest-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+@keyframes ingest-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ingest-orbit-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+@keyframes ingest-particle {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-10px) scale(1.15);
+    opacity: 1;
+  }
+}
+@keyframes ingest-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.15), 0 0 40px rgba(139, 92, 246, 0.08);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(34, 211, 238, 0.35), 0 0 56px rgba(139, 92, 246, 0.15);
+  }
+}
+@keyframes ingest-step-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.ingest-shimmer-bar {
+  width: 42%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.9), rgba(167, 139, 250, 0.95), transparent);
+  animation: ingest-shimmer 1.35s ease-in-out infinite;
+}
+.ingest-orbit-outer {
+  animation: ingest-orbit 2.8s linear infinite;
+}
+.ingest-orbit-inner {
+  animation: ingest-orbit-reverse 2s linear infinite;
+}
+.ingest-particle-0 {
+  animation: ingest-particle 1.4s ease-in-out infinite;
+  animation-delay: 0ms;
+}
+.ingest-particle-1 {
+  animation: ingest-particle 1.4s ease-in-out infinite;
+  animation-delay: 0.2s;
+}
+.ingest-particle-2 {
+  animation: ingest-particle 1.4s ease-in-out infinite;
+  animation-delay: 0.4s;
+}
+.ingest-step-text {
+  animation: ingest-step-fade 0.45s ease-out forwards;
+}
+.ingest-card-glow {
+  animation: ingest-glow-pulse 2.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ingest-shimmer-bar,
+  .ingest-orbit-outer,
+  .ingest-orbit-inner,
+  .ingest-particle-0,
+  .ingest-particle-1,
+  .ingest-particle-2,
+  .ingest-step-text,
+  .ingest-card-glow {
+    animation: none !important;
+  }
+}

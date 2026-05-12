@@ -9,7 +9,6 @@ from src.tools.web_search_tool import WebSearchTool
 from src.graph.nodes import GraphNodes
 from src.graph.workflow import build_graph
 from src.ingestion.arxiv_ingestor import ArxivIngestor
-from src.memory.memory_store import MemoryStore
 from src.retrieval.hybrid_retriever import HybridRetriever
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -19,11 +18,6 @@ def get_vector_store() -> VectorStore:
     settings: Settings = get_settings()
     return VectorStore(settings)
 
-
-@lru_cache
-def get_memory_store() -> MemoryStore:
-    settings: Settings = get_settings()
-    return MemoryStore(settings)
 
 
 @lru_cache
@@ -48,7 +42,6 @@ def get_graph():
     nodes: GraphNodes = GraphNodes(
         settings=settings,
         retriever=get_retriever(),
-        # memory_store=get_memory_store(),
         web_search_tool=WebSearchTool(),
     )
     return build_graph(nodes, checkpointer=checkpointer)
