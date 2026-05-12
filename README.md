@@ -11,7 +11,7 @@ Unlike rigid RAG pipelines, this app uses a LangGraph-powered agent to autonomou
 
 ---
 
-# [Demo Video](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+# [Demo Video](https://youtu.be/c-DDD2RRl1k)
 
 ---
 
@@ -37,40 +37,91 @@ The system is decoupled into:
 ### Backend Architecture Diagram
 
 ```mermaid
-flowchart LR
-  subgraph api [FastAPI]
-    Chat["/chat"]
-    Ingest["/ingest-papers"]
-    Health["/health"]
-  end
-  subgraph agent [LangGraph]
-    P[planner]
-    R[retrieval]
-    RR[reranker]
-    T[tool web_search]
-    A[answer]
-    RC[refusal_or_clarification]
-    E[evaluation_hook]
-  end
-  Chat --> P
-  P --> R
-  P --> T
-  P --> A
-  P --> RC
-  R --> RR
-  R --> T
-  RR --> A
-  RR --> T
-  T --> A
-  A --> E
-  RC --> E
-  subgraph data [Stores]
-    PC[(Pinecone)]
-    PDFs[storage/pdfs]
-  end
-  Ingest --> PDFs
-  Ingest --> PC
-  R --> PC
+flowchart TB
+
+    %% =========================
+    %% API Layer
+    %% =========================
+    subgraph API["FastAPI Layer"]
+        CHAT["POST /chat"]
+        INGEST["POST /ingest-papers"]
+        HEALTH["GET /health"]
+    end
+
+    %% =========================
+    %% Agent Workflow
+    %% =========================
+    subgraph AGENT["LangGraph Agent Workflow"]
+
+        START(["User Query"])
+
+        P["🧠 Planner Node"]
+
+        R["📚 Retrieval Node"]
+
+        RR["🔎 Reranker Node"]
+
+        T["🌐 Web Search Tool"]
+
+        A["✍️ Answer Generator"]
+
+        RC["⚠️ Clarification / Refusal"]
+
+        E["📊 Evaluation Hook"]
+
+        END(["Final Response"])
+
+        %% Main Flow
+        START --> P
+
+        %% Planner Routing
+        P -->|Need documents| R
+        P -->|Need realtime info| T
+        P -->|Enough context| A
+        P -->|Unsafe / unclear| RC
+
+        %% Retrieval Path
+        R --> RR
+        RR --> A
+
+        %% Tool Path
+        T --> A
+
+        %% Clarification Path
+        RC --> A
+
+        %% Finalization
+        A --> E
+        E --> END
+
+    end
+
+    %% =========================
+    %% Data Layer
+    %% =========================
+    subgraph DATA["Storage & Vector Database"]
+
+        PDFs["📄 storage/pdfs"]
+
+        PC[("🗂️ Pinecone")]
+
+    end
+
+    %% =========================
+    %% Ingestion Flow
+    %% =========================
+    INGEST --> PDFs
+    INGEST --> PC
+
+    %% =========================
+    %% Retrieval Access
+    %% =========================
+    R --> PC
+
+    %% =========================
+    %% API Connection
+    %% =========================
+    CHAT --> START
 ```
 
 
